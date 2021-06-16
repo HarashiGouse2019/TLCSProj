@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "+Z9ggDgtJXJNDnwMnTqX9sOwjTVmtsA/mRr/j745TysZGvavlxsyLSdXt6Dw5fkTwKPktclQhgiPey2EFk75oQ==",
+  "success": true,
+  "projectFilePath": "E:\\Documents\\Repositories\\C#\\TLCS\\TLCSProj\\TLCSProj.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\tclte\\.nuget\\packages\\consolegui\\1.4.0\\consolegui.1.4.0.nupkg.sha512",
+    "C:\\Users\\tclte\\.nuget\\packages\\microsoft.netcore.platforms\\5.0.0\\microsoft.netcore.platforms.5.0.0.nupkg.sha512",
+    "C:\\Users\\tclte\\.nuget\\packages\\microsoft.win32.registry\\5.0.0\\microsoft.win32.registry.5.0.0.nupkg.sha512",
+    "C:\\Users\\tclte\\.nuget\\packages\\system.diagnostics.eventlog\\5.0.0\\system.diagnostics.eventlog.5.0.0.nupkg.sha512",
+    "C:\\Users\\tclte\\.nuget\\packages\\system.security.accesscontrol\\5.0.0\\system.security.accesscontrol.5.0.0.nupkg.sha512",
+    "C:\\Users\\tclte\\.nuget\\packages\\system.security.principal.windows\\5.0.0\\system.security.principal.windows.5.0.0.nupkg.sha512",
+    "C:\\Users\\tclte\\.nuget\\packages\\system.serviceprocess.servicecontroller\\5.0.0\\system.serviceprocess.servicecontroller.5.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
