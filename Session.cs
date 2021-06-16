@@ -29,6 +29,7 @@ namespace TLCSProj.Core
         internal const bool FAIL = false;
         internal const string SPAN_FMT = @"hh\:mm\.ss";
         internal const string REG_SUB_KEY_ALIAS = "Software\\TLCS\\Alias";
+        internal const char MULTI_ALIAS_DELIMITER = '|';
 
         internal string _commandString;
 
@@ -106,33 +107,21 @@ namespace TLCSProj.Core
 
                     _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
 
-                    /*TODO: Process currently takes in a program link.
-                            Generate process file for open and close commands.
-                            Commands to generate is genAliKey.
-                            If it exists, user will be prompted that.
-                            To add process alias, use command
-                            newAli. Args are program directory and alias name.
-                            Alias can also open multiple process. Call
-                            newAli, encapulate list of directory, and seperate each with
-                            comma, then create alias name.
-                            
-                            Example: 
-                            [Add New Alias]
-                            >> newAli "C:\Program Files\OpenMPT\OpenMPT.exe" openMPT
-                            Output: Alias "openMPT" successfully added.
-                            
-                            [Call Alias]
-                            >> open openMPT
-                            Output: Opening openMPT...
-
-                            [Add New Alias with Multiple Processes]
-                            >> newAli ["C:\Program Files\OpenMPT\OpenMPT.exe", "C:\Users\tclte\AppData\Local\Programs\Microsoft VS Code\Code.exe", C:\Users\tclte\AppData\Local\Discord\Update.exe --processStart Discord.exe] dailyDriver
-                            Output: Alias "dailyDriver" successfully added.
+                    /*TODO: MultiProcess Alias Feature
+                     * It's really easy. It's the same thing as a normal alias,
+                     * except you combine your links into a single string, being sure
+                     * to seperate each file with |
+                     * EXAMPLE 
+                     * newali 
+                     * "E:\SteamLibrary\steamapps\common\琴葉姉妹とライサント島の伝説\kotonoha\kotonoha.exe|
+                     * C:\Users\tclte\AppData\Local\Programs\Microsoft VS Code\Code.exe|
+                     * C:\Users\tclte\AppData\Local\Discord\Update.exe" multiAlias
+                     * Have command detect | And if so, split and enter a foreach loop.
                             */
                     SessionTimeLog.AddNewEntry(EntryType.PROCESSSTARTREQUEST, (_IncludeSystemEvents ?
                         $"Opening {_storedArgs[1]}" : null) + "...");
 
-                    OpenApplication(_storedArgs[1]);
+                    OpenProcess(_storedArgs[1]);
                 },
 
                 //Close Command (args: string)
@@ -146,7 +135,7 @@ namespace TLCSProj.Core
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, (_IncludeSystemEvents ?
                         $"Closing {_storedArgs[1]}" : null) + "...");
 
-                    CloseApplication(_storedArgs[1]);
+                    CloseProcess(_storedArgs[1]);
                 },
 
                 //Hotkey Command (args: char, int)
@@ -254,7 +243,7 @@ namespace TLCSProj.Core
                 }
             };
 
-        private static void OpenApplication(string applicationPath)
+        private static void OpenProcess(string applicationPath)
         {
             //Start application
             try
@@ -267,13 +256,28 @@ namespace TLCSProj.Core
 
                 applicationPath = processFromAlias == string.Empty ? input : processFromAlias;
 
-                Process.Start(applicationPath);
-
-                _TrackedProcesses = Process.GetProcesses();
-
+                
                 aliasKey.Close();
+                bool isMultiProcessAlias = applicationPath.Contains(MULTI_ALIAS_DELIMITER);
+                if (isMultiProcessAlias)
+                {
+                    string[] processes = applicationPath.Split(MULTI_ALIAS_DELIMITER);
+                    foreach(string process in processes)
+                    {
+                        Process.Start(process);
 
-                SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {applicationPath} started successfully!");
+                        _TrackedProcesses = Process.GetProcesses();
+
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {process} started successfully!");
+                    }
+                } else
+                {
+                    Process.Start(applicationPath);
+
+                    _TrackedProcesses = Process.GetProcesses();
+
+                    SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {applicationPath} started successfully!");
+                }
             }
             catch
             {
@@ -282,7 +286,7 @@ namespace TLCSProj.Core
             }
         }
 
-        private static void CloseApplication(string applicationPath)
+        private static void CloseProcess(string applicationPath)
         {
             //Close Application
             foreach (Process process in _TrackedProcesses)
