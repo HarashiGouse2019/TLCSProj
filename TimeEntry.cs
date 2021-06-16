@@ -13,7 +13,9 @@ namespace TLCSProj.Core.Time
             "POST ADDED TO LOG",
             "PUNCH IN RECEIVED",
             "PUNCH OUT RECIEVED",
-            "SYSTEM EVENT RECEIVED"
+            "SYSTEM POST RECEIVED",
+            "SYSTEM ERROR RECEIVED",
+            "PROCESS START REQUEST"
         };
         internal TimeEntry(EntryType type, object value = null)
         {
@@ -22,17 +24,17 @@ namespace TLCSProj.Core.Time
                 new TimeEntry(value.ToString());
                 return;
             }
-            EntryMessage = $"{GetTimeStamp()} {_entryHeader[(int)type % 5]}" + ((value != null) ? $" | {value}" : "");
+            EntryMessage = $">> {GetTimeStamp()} {_entryHeader[(int)type % _entryHeader.Length]}" + ((value != null) ? $" | {value}" : "");
             Type = type;
         }
         internal TimeEntry(string entryHeader, object value = null)
         {
-            EntryMessage = $"{GetTimeStamp()} {entryHeader} | {value}";
+            EntryMessage = $">> {GetTimeStamp()} {entryHeader} | {value}";
         }
 
         internal TimeEntry(string userEntryMessage)
         {
-            EntryMessage = $"{GetTimeStamp()} {userEntryMessage}";
+            EntryMessage = $">> {GetTimeStamp()} {userEntryMessage}";
         }
 
         string GetTimeStamp()

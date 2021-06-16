@@ -9,6 +9,7 @@
       "TLCSProj/1.0.0": {
         "dependencies": {
           "ConsoleGUI": "1.4.0",
+          "Microsoft.Win32.Registry": "5.0.0",
           "System.ServiceProcess.ServiceController": "5.0.0"
         },
         "runtime": {

@@ -27,7 +27,7 @@
           "System.Security.Principal.Windows": "5.0.0"
         },
         "compile": {
-          "ref/netstandard2.0/_._": {}
+          "ref/netstandard2.0/Microsoft.Win32.Registry.dll": {}
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.Win32.Registry.dll": {}
@@ -66,7 +66,7 @@
           "System.Security.Principal.Windows": "5.0.0"
         },
         "compile": {
-          "ref/netstandard2.0/_._": {}
+          "ref/netstandard2.0/System.Security.AccessControl.dll": {}
         },
         "runtime": {
           "lib/netstandard2.0/System.Security.AccessControl.dll": {}
@@ -365,6 +365,7 @@
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v3.1": [
       "ConsoleGUI >= 1.4.0",
+      "Microsoft.Win32.Registry >= 5.0.0",
       "System.ServiceProcess.ServiceController >= 5.0.0"
     ]
   },
@@ -415,6 +416,10 @@
           "ConsoleGUI": {
             "target": "Package",
             "version": "[1.4.0, )"
+          },
+          "Microsoft.Win32.Registry": {
+            "target": "Package",
+            "version": "[5.0.0, )"
           },
           "System.ServiceProcess.ServiceController": {
             "target": "Package",

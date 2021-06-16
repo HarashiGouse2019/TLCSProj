@@ -6,6 +6,8 @@
         POST,
         PUNCHIN,
         PUNCHOUT,
-        SYSTEM
+        SYSTEMPOST,
+        SYSTEMERROR,
+        PROCESSSTARTREQUEST
     } 
 }
