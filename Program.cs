@@ -1,36 +1,26 @@
 ﻿using System;
+using System.Threading;
+
 using TLCSProj.Core;
 using TLCSProj.Core.Time;
 using TLCSProj.UI;
-using System.Threading;
-using System.Collections;
+using TLCSProj.Kronos;
+
+using ConsoleGUI.Controls;
+using ConsoleGUI.Data;
+using ConsoleGUI.Input;
+using ConsoleGUI.Space;
 
 namespace TLCSProj
 {
     class Program
     {
-        enum MonthOfYear
-        {
-            January,
-            Feburary,
-            March,
-            April,
-            May,
-            June,
-            July,
-            August,
-            September,
-            October,
-            November,
-            December
-        }
         static Thread consoleUIThread = new Thread(new ThreadStart(() => UiUpdate()));
         static Thread sessionThread;
         static void Main(string[] args)
         {
-            Console.SetWindowPosition(0, 0);
             Session targetSession = new Session();
-            
+            UIMain();
             consoleUIThread.Start();
             sessionThread = new Thread(new ThreadStart(() => ReadInput(targetSession)));
             sessionThread.IsBackground = true;
@@ -66,11 +56,11 @@ namespace TLCSProj
                 }
             }
         }
-
-        static void UiUpdate()
+        delegate void UiDraw();
+        static UiDraw drawCallback;
+        static void UIMain()
         {
-            
-            while (true)
+             drawCallback = () =>
             {
                 DateTime dt = DateTime.Now;
 
@@ -87,8 +77,9 @@ namespace TLCSProj
                 Label l_TotalRuntime = new Label($"Total Runtime : " + Session.CumulativeSessionRuntime.Elapsed.ToString(@"hh\:mm\.ss"));
                 Label l_Line = new Label("-".PadRight(Console.WindowWidth, '-'));
                 Label l_TimeLog = new Label("Time Log");
-                
+
                 Console.CursorVisible = false;
+
 
                 ConsoleDrawer.Draw(l_Date, 0, 0);
                 ConsoleDrawer.Draw(l_Title, (Console.WindowWidth / 2) - (l_Title.Size / 2), 0);
@@ -112,13 +103,20 @@ namespace TLCSProj
                 int bottom = 0;
 
                 //Display New Time Log Information
-                for(int index = 0; index < Session.SessionTimeLog.Get().Count; index++)
+                for (int index = 0; index < Session.SessionTimeLog.Get().Count; index++)
                 {
                     bottom = 15 + index;
                     TimeEntry entry = Session.SessionTimeLog.Get()[index];
                     Label l_Entry = new Label(entry.EntryMessage);
                     ConsoleDrawer.Draw(l_Entry, 0, bottom);
                 }
+            };
+        }
+        static void UiUpdate()
+        {
+            while (true)
+            {
+                drawCallback.Invoke();
             }
         }
     }

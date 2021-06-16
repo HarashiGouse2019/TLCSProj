@@ -8,10 +8,19 @@
     ".NETCoreApp,Version=v3.1": {
       "TLCSProj/1.0.0": {
         "dependencies": {
+          "ConsoleGUI": "1.4.0",
           "System.ServiceProcess.ServiceController": "5.0.0"
         },
         "runtime": {
           "TLCSProj.dll": {}
+        }
+      },
+      "ConsoleGUI/1.4.0": {
+        "runtime": {
+          "lib/netstandard2.0/ConsoleGUI.dll": {
+            "assemblyVersion": "1.4.0.0",
+            "fileVersion": "1.4.0.0"
+          }
         }
       },
       "Microsoft.NETCore.Platforms/5.0.0": {},
@@ -124,6 +133,13 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "ConsoleGUI/1.4.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-t4oMMDKtY2IAqBvIhgQrys0o0hnHafgbUBtO6a7QG8lbmOR7CdyJOmw6kDobmwPWyBD7Ej5/TIpTdyNyof9o9g==",
+      "path": "consolegui/1.4.0",
+      "hashPath": "consolegui.1.4.0.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/5.0.0": {
       "type": "package",
