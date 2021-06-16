@@ -10,7 +10,7 @@ namespace TLCSProj.Core.Time
         string[] _entryHeader =
         {
             "",
-            "POST ADDED TO LOG",
+            "POST",
             "PUNCH IN RECEIVED",
             "PUNCH OUT RECIEVED",
             "SYSTEM POST RECEIVED",

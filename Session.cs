@@ -7,29 +7,87 @@ using System.ServiceProcess;
 using Microsoft.Win32;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.IO;
 
 namespace TLCSProj.Core
 {
+
+    enum UserStatus
+    {
+        INACTIVE,
+        ACTIVE,
+        ONREST,
+    }
     internal class Session
     {
         internal static Session Instance;
 
-        internal static string UserID { get; private set; } = null;
-        internal static string CurrentTerminalName { get; private set; } = null;
-        internal static string CurrentIPAddress { get; private set; } = null;
-        internal static string TotalProcesses { get; private set; } = null;
-        internal static string TotalServices { get; private set; } = null;
+        static bool IsAdmin
+        {
+            get
+            {
+                WindowsIdentity identity = WindowsIdentity.GetCurrent();
+                WindowsPrincipal principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+        }
+
+        internal static string UserID
+        {
+            get
+            {
+                return Environment.UserName + (IsAdmin ? $" (Admin)" : " (User)");
+            }
+        }
+
+        internal static string CurrentTerminalName
+        {
+            get
+            {
+                return Environment.MachineName;
+            }
+        }
+
+        internal static string CurrentIPAddress
+        {
+            get 
+            { 
+                return Network.IsConnected ? Network.GetLocalIPAddress() : "Unknown"; 
+            }
+        }
+
+        internal static string TotalProcesses
+        {
+            get
+            {
+                return Process.GetProcesses().Length.ToString();
+            }
+        }
+
+        internal static string TotalServices
+        {
+            get
+            {
+                return ServiceController.GetServices().Length.ToString();
+            }
+        }
+
+        internal static double[] DurationMetrics           = new double[3];
+        internal static double[] CumulativeDurationMetrics = new double[3];
 
 
-        internal static string LastPunchIn = "00:00.00";
-        internal static string LastPunchOut = "00:00.00";
-        internal static string TotalRuntime = "00:00.00";
+        internal static string LastPunchIn = "00:00";
+        internal static string LastPunchOut = "00:00";
+        internal static string TotalRuntime = "00:00:00.00";
 
         internal const bool OK = true;
         internal const bool FAIL = false;
-        internal const string SPAN_FMT = @"hh\:mm\.ss";
+        internal const string SPAN_FMT = @"hh\:mm\:ss\.mm";
         internal const string REG_SUB_KEY_ALIAS = "Software\\TLCS\\Alias";
         internal const char MULTI_ALIAS_DELIMITER = '|';
+        internal const int HOUR_INDEX = 0;
+        internal const int MINUTE_INDEX = 1;
+        internal const int SECOND_INDEX = 2;
 
         internal string _commandString;
 
@@ -41,15 +99,7 @@ namespace TLCSProj.Core
         static Process[] _TrackedProcesses;
         static RegistryKey? aliasKey;
         static RegistrySecurity sec = new RegistrySecurity();
-        static bool IsAdmin
-        {
-            get
-            {
-                WindowsIdentity identity = WindowsIdentity.GetCurrent();
-                WindowsPrincipal principal = new WindowsPrincipal(identity);
-                return principal.IsInRole(WindowsBuiltInRole.Administrator);
-            }
-        }
+        
 
         static readonly SessionCallbackMethods[] CommandMethodList = {
                 //Post command (args: string)
@@ -107,17 +157,6 @@ namespace TLCSProj.Core
 
                     _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
 
-                    /*TODO: MultiProcess Alias Feature
-                     * It's really easy. It's the same thing as a normal alias,
-                     * except you combine your links into a single string, being sure
-                     * to seperate each file with |
-                     * EXAMPLE 
-                     * newali 
-                     * "E:\SteamLibrary\steamapps\common\琴葉姉妹とライサント島の伝説\kotonoha\kotonoha.exe|
-                     * C:\Users\tclte\AppData\Local\Programs\Microsoft VS Code\Code.exe|
-                     * C:\Users\tclte\AppData\Local\Discord\Update.exe" multiAlias
-                     * Have command detect | And if so, split and enter a foreach loop.
-                            */
                     SessionTimeLog.AddNewEntry(EntryType.PROCESSSTARTREQUEST, (_IncludeSystemEvents ?
                         $"Opening {_storedArgs[1]}" : null) + "...");
 
@@ -151,7 +190,6 @@ namespace TLCSProj.Core
                 //System Listen Command (args: bool)
                 () =>
                 {
-                    //TODO: Enable Log to listen to System Events or Entry Types
                     _IncludeSystemEvents = bool.Parse(_storedArgs[1]);
 
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, _IncludeSystemEvents ?
@@ -256,13 +294,13 @@ namespace TLCSProj.Core
 
                 applicationPath = processFromAlias == string.Empty ? input : processFromAlias;
 
-                
+
                 aliasKey.Close();
                 bool isMultiProcessAlias = applicationPath.Contains(MULTI_ALIAS_DELIMITER);
                 if (isMultiProcessAlias)
                 {
                     string[] processes = applicationPath.Split(MULTI_ALIAS_DELIMITER);
-                    foreach(string process in processes)
+                    foreach (string process in processes)
                     {
                         Process.Start(process);
 
@@ -270,7 +308,8 @@ namespace TLCSProj.Core
 
                         SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {process} started successfully!");
                     }
-                } else
+                }
+                else
                 {
                     Process.Start(applicationPath);
 
@@ -279,10 +318,8 @@ namespace TLCSProj.Core
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {applicationPath} started successfully!");
                 }
             }
-            catch
-            {
-                if (!_IncludeSystemEvents) return;
-                SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to execute process {applicationPath}...");
+            catch (Exception e) {
+                SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to execute process {applicationPath}... REASON: {e.Message}");
             }
         }
 
@@ -357,11 +394,7 @@ namespace TLCSProj.Core
 
             SessionTimeLog = new TimeLog();
 
-            UserID = Environment.UserName + (IsAdmin ? $" (Admin)" : " (User)");
-            CurrentTerminalName = Environment.MachineName;
-            CurrentIPAddress = Network.IsConnected ? Network.GetLocalIPAddress() : "Unknown";
-            TotalProcesses = Process.GetProcesses().Length.ToString();
-            TotalServices = ServiceController.GetServices().Length.ToString();
+
 
             InitCommands();
 
@@ -389,12 +422,21 @@ namespace TLCSProj.Core
         internal static string GetSessionRuntime()
         {
             TimeSpan sessionTimeSpan = SessionRuntime.Elapsed;
+            DurationMetrics[HOUR_INDEX] = sessionTimeSpan.TotalHours;
+            DurationMetrics[MINUTE_INDEX] = sessionTimeSpan.TotalMinutes;
+            DurationMetrics[SECOND_INDEX] = sessionTimeSpan.TotalSeconds;
+            
             return $"SESSION RUNTIME: {sessionTimeSpan.ToString(SPAN_FMT)}";
         }
 
         internal static string GetCumulativeSessionRuntime()
         {
             TimeSpan cumulativeSessionTimeSpan = CumulativeSessionRuntime.Elapsed;
+
+            CumulativeDurationMetrics[HOUR_INDEX] = cumulativeSessionTimeSpan.TotalHours;
+            CumulativeDurationMetrics[MINUTE_INDEX] = cumulativeSessionTimeSpan.TotalMinutes;
+            CumulativeDurationMetrics[SECOND_INDEX] = cumulativeSessionTimeSpan.TotalSeconds;
+
             return $"CUMULATIVE SESSION RUNTIME: {cumulativeSessionTimeSpan.ToString(SPAN_FMT)}";
         }
 
@@ -403,7 +445,7 @@ namespace TLCSProj.Core
 
         static string GetAliasProcessString(RegistryKey aliasKey, string aliasName)
         {
-            for(int index = 0; index < aliasKey.GetValueNames().Length; index++)
+            for (int index = 0; index < aliasKey.GetValueNames().Length; index++)
             {
                 string currentKeyName = aliasKey.GetValueNames()[index];
                 if (currentKeyName.Contains(aliasName))
