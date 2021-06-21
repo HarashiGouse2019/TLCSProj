@@ -1,13 +1,16 @@
 ﻿using System;
-using TLCSProj.Net;
-using TLCSProj.EntryInfo;
-using TLCSProj.Core.Time;
 using System.Diagnostics;
 using System.ServiceProcess;
-using Microsoft.Win32;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.IO;
+
+using Microsoft.Win32;
+
+using TLCSProj.Net;
+using TLCSProj.EntryInfo;
+using TLCSProj.Core.Time;
+
 
 namespace TLCSProj.Core
 {
@@ -18,6 +21,13 @@ namespace TLCSProj.Core
         ACTIVE,
         ONREST,
     }
+
+    enum PunchOutType
+    {
+        OUT,
+        BREAK
+    }
+
     internal class Session
     {
         internal static Session Instance;
@@ -50,9 +60,9 @@ namespace TLCSProj.Core
 
         internal static string CurrentIPAddress
         {
-            get 
-            { 
-                return Network.IsConnected ? Network.GetLocalIPAddress() : "Unknown"; 
+            get
+            {
+                return Network.IsConnected ? Network.GetLocalIPAddress() : "Unknown";
             }
         }
 
@@ -72,13 +82,15 @@ namespace TLCSProj.Core
             }
         }
 
-        internal static double[] DurationMetrics           = new double[3];
+        internal static double[] DurationMetrics = new double[3];
         internal static double[] CumulativeDurationMetrics = new double[3];
 
 
         internal static string LastPunchIn = "00:00";
         internal static string LastPunchOut = "00:00";
         internal static string TotalRuntime = "00:00:00.00";
+
+        internal static UserStatus UserStatus = default;
 
         internal const bool OK = true;
         internal const bool FAIL = false;
@@ -97,9 +109,14 @@ namespace TLCSProj.Core
         static bool _IncludeSystemEvents = false;
         static bool _inSession = false;
         static Process[] _TrackedProcesses;
-        static RegistryKey? aliasKey;
+
+        internal static TimeLog SessionTimeLog;
+
         static RegistrySecurity sec = new RegistrySecurity();
-        
+
+#nullable enable annotations
+        static string[]? _storedArgs = null;
+        static RegistryKey? aliasKey;
 
         static readonly SessionCallbackMethods[] CommandMethodList = {
                 //Post command (args: string)
@@ -113,7 +130,7 @@ namespace TLCSProj.Core
                 () =>
                 {
                     _inSession = true;
-                    SessionTimeLog.AddNewEntry(EntryType.PUNCHIN);
+                    SessionTimeLog.AddNewEntry(EntryType.PUNCHIN, color: ConsoleColor.Green);
                     SessionRuntime = Stopwatch.StartNew();
                     CumulativeSessionRuntime = Stopwatch.StartNew();
                     MarkPunchIn();
@@ -122,18 +139,19 @@ namespace TLCSProj.Core
                 //Rest Command (void)
                 () =>
                 {
+                    
                     SessionTimeLog.AddNewEntry(EntryType.PUNCHOUT, $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}");
+                        $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
                     SessionRuntime.Stop();
                     CumulativeSessionRuntime.Stop();
-                    MarkPunchOut();
+                    MarkPunchOut(PunchOutType.BREAK);
                 },
 
                 //Resume Command (void)
                 () =>
                 {
                     SessionTimeLog.AddNewEntry(EntryType.PUNCHIN, $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}");
+                        $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
                     SessionRuntime.Restart();
                     CumulativeSessionRuntime.Start();
                     MarkPunchIn();
@@ -144,7 +162,7 @@ namespace TLCSProj.Core
                 {
                     _inSession = false;
                     SessionTimeLog.AddNewEntry(EntryType.PUNCHOUT, $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}");
+                        $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
                     SessionRuntime.Stop();
                     CumulativeSessionRuntime.Stop();
                     MarkPunchOut();
@@ -158,7 +176,7 @@ namespace TLCSProj.Core
                     _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
 
                     SessionTimeLog.AddNewEntry(EntryType.PROCESSSTARTREQUEST, (_IncludeSystemEvents ?
-                        $"Opening {_storedArgs[1]}" : null) + "...");
+                        $"Opening {_storedArgs[1]}" : null) + "...", ConsoleColor.Yellow);
 
                     OpenProcess(_storedArgs[1]);
                 },
@@ -172,7 +190,7 @@ namespace TLCSProj.Core
 
                     //TODO: Find Service Name, and close
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, (_IncludeSystemEvents ?
-                        $"Closing {_storedArgs[1]}" : null) + "...");
+                        $"Closing {_storedArgs[1]}" : null) + "...", ConsoleColor.Yellow);
 
                     CloseProcess(_storedArgs[1]);
                 },
@@ -184,7 +202,7 @@ namespace TLCSProj.Core
 
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, _IncludeSystemEvents ?
                         $"Key {_storedArgs[1]} set to {(CommandList)Convert.ToInt32(_storedArgs[2])} command.\n" +
-                        $"Hold ALT then the hotkey you've registered." : null);
+                        $"Hold ALT then the hotkey you've registered." : null, ConsoleColor.Yellow);
                 },
 
                 //System Listen Command (args: bool)
@@ -194,7 +212,7 @@ namespace TLCSProj.Core
 
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, _IncludeSystemEvents ?
                         $"System Now Listening. System Events will now be logged." :
-                        "System Has Stopped Listening. System Events will not be logged.");
+                        "System Has Stopped Listening. System Events will not be logged.", ConsoleColor.Yellow);
                 },
 
                 //Log Target Command (args: string)
@@ -208,8 +226,7 @@ namespace TLCSProj.Core
                 {
                     SessionTimeLog.AddNewEntry(EntryType.NULL,
                         $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()} | " +
-                        $"Total Hours is {CumulativeSessionRuntime.Elapsed.TotalHours}");
+                        $"{GetCumulativeSessionRuntime()}");
 
                 },
 
@@ -217,9 +234,10 @@ namespace TLCSProj.Core
                 () =>
                 {
                     //TODO: Open Print Service, and set print job for Target File 
+                    
                 },
 
-                //New Alias Command (params string[], string)
+                //New Alias Command (string, string)
                 () =>
                 {
                     if (!_IncludeSystemEvents) return;
@@ -236,15 +254,15 @@ namespace TLCSProj.Core
 
                         aliasKey.Close();
 
-                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias {_storedArgs[2]} added successfully!\nProcess(s): {_storedArgs[1]}");
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias {_storedArgs[2]} added successfully!\nProcess(s): {_storedArgs[1]}", ConsoleColor.Yellow);
                     }
                     catch (AccessViolationException ave)
                     {
-                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to add new alias {_storedArgs[2]}.\nREASON CODE: {ave.Message}");
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to add new alias {_storedArgs[2]}.\nREASON CODE: {ave.Message}", ConsoleColor.Red);
                     }
                     catch (Exception e)
                     {
-                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to add new alias {_storedArgs[2]}.\nREASON CODE: {e.Message}\nDoes AliasKey exist?\nIf not, use command \"genalikey\"");
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to add new alias {_storedArgs[2]}.\nREASON CODE: {e.Message}\nDoes AliasKey exist?\nIf not, use command \"genalikey\"", ConsoleColor.Red);
                     }
                 },
 
@@ -259,15 +277,69 @@ namespace TLCSProj.Core
                             aliasKey = Registry.LocalMachine.CreateSubKey(REG_SUB_KEY_ALIAS, true);
                             aliasKey.SetAccessControl(sec);
                             aliasKey.Close();
-                            SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias Registry Key has been generated...");
+                            SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias Registry Key has been generated...", ConsoleColor.Yellow);
                         }
 
-                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias Registry Key has already been generated.");
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias Registry Key has already been generated.", ConsoleColor.Yellow);
                     }
                     catch (Exception e)
                     {
-                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to generate Alias Registry Key. Are you an Admin?\nREASON CODE: {e.Message}");
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to generate Alias Registry Key. Are you an Admin?\nREASON CODE: {e.Message}", ConsoleColor.Red);
                     }
+                },
+
+                //Get Hours Command (int?)
+                () =>
+                {
+                    var value = 0;
+                    var returnValue = value == 1 ? DurationMetrics[HOUR_INDEX] : CumulativeDurationMetrics[HOUR_INDEX];
+                    try
+                    {
+                        value = (Convert.ToInt32(_storedArgs[1]));
+                    }
+                    catch
+                    {
+                        value = default;
+                    }
+                    SessionTimeLog.AddNewEntry(EntryType.NULL, $"Session Runtime in Hours: {returnValue}");
+                },
+
+                //Get Minutes Command (int?)
+                () =>
+                {
+                    var value = 0;
+                    var returnValue = value == 1 ? DurationMetrics[MINUTE_INDEX] : CumulativeDurationMetrics[MINUTE_INDEX];
+                    try
+                    {
+                        value = (Convert.ToInt32(_storedArgs[1]));
+                    }
+                    catch
+                    {
+                        value = default;
+                    }
+                    SessionTimeLog.AddNewEntry(EntryType.NULL, $"Session Runtime in Minutes: {returnValue}");
+                },
+
+                //Get Seconds Command (int?)
+                () =>
+                {
+                    var value = 0;
+                    var returnValue = value == 1 ? DurationMetrics[SECOND_INDEX] : CumulativeDurationMetrics[SECOND_INDEX];
+                    try
+                    {
+                        value = (Convert.ToInt32(_storedArgs[1]));
+                    }
+                    catch
+                    {
+                        value = default;
+                    }
+                    SessionTimeLog.AddNewEntry(EntryType.NULL, $"Session Runtime in Seconds: {returnValue}");
+                },
+
+                //Help Command (void)
+                () =>
+                {
+
                 },
 
                 //End Command (void)
@@ -275,9 +347,7 @@ namespace TLCSProj.Core
                 {
                     //TODO: End Session
                     _inSession = false;
-                    SessionTimeLog .AddNewEntry(EntryType.PUNCHOUT, "End of Time Logging Session!");
-
-                    //TODO: Print cumulative stats, and generate log file
+                    SessionTimeLog .AddNewEntry(EntryType.PUNCHOUT, "End of Time Logging Session!", ConsoleColor.Green);
                 }
             };
 
@@ -294,8 +364,8 @@ namespace TLCSProj.Core
 
                 applicationPath = processFromAlias == string.Empty ? input : processFromAlias;
 
-
                 aliasKey.Close();
+
                 bool isMultiProcessAlias = applicationPath.Contains(MULTI_ALIAS_DELIMITER);
                 if (isMultiProcessAlias)
                 {
@@ -306,7 +376,7 @@ namespace TLCSProj.Core
 
                         _TrackedProcesses = Process.GetProcesses();
 
-                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {process} started successfully!");
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {process} started successfully!", ConsoleColor.Yellow);
                     }
                 }
                 else
@@ -315,11 +385,12 @@ namespace TLCSProj.Core
 
                     _TrackedProcesses = Process.GetProcesses();
 
-                    SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {applicationPath} started successfully!");
+                    SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Process {applicationPath} started successfully!", ConsoleColor.Yellow);
                 }
             }
-            catch (Exception e) {
-                SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to execute process {applicationPath}... REASON: {e.Message}");
+            catch (Exception e)
+            {
+                SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, $"Failed to execute process {applicationPath}... REASON: {e.Message}", ConsoleColor.Red);
             }
         }
 
@@ -350,12 +421,13 @@ namespace TLCSProj.Core
             PRINT,
             NEWALI,
             GENALIKEY,
+            GETHRS,
+            GETMINS,
+            GETSECS,
+            HELP,
             END
         }
 
-        static string[] _storedArgs = null;
-
-        internal static TimeLog SessionTimeLog;
 
         internal static void Validate(string[] args)
         {
@@ -394,8 +466,6 @@ namespace TLCSProj.Core
 
             SessionTimeLog = new TimeLog();
 
-
-
             InitCommands();
 
             SessionRuntime = Stopwatch.StartNew();
@@ -425,7 +495,7 @@ namespace TLCSProj.Core
             DurationMetrics[HOUR_INDEX] = sessionTimeSpan.TotalHours;
             DurationMetrics[MINUTE_INDEX] = sessionTimeSpan.TotalMinutes;
             DurationMetrics[SECOND_INDEX] = sessionTimeSpan.TotalSeconds;
-            
+
             return $"SESSION RUNTIME: {sessionTimeSpan.ToString(SPAN_FMT)}";
         }
 
@@ -440,8 +510,16 @@ namespace TLCSProj.Core
             return $"CUMULATIVE SESSION RUNTIME: {cumulativeSessionTimeSpan.ToString(SPAN_FMT)}";
         }
 
-        static void MarkPunchIn() => LastPunchIn = DateTime.Now.ToLongTimeString();
-        static void MarkPunchOut() => LastPunchOut = DateTime.Now.ToLongTimeString();
+        static void MarkPunchIn()
+        {
+            LastPunchIn = DateTime.Now.ToLongTimeString();
+            UpdateUserStatus(UserStatus.ACTIVE);
+        }
+        static void MarkPunchOut(PunchOutType isRest = PunchOutType.OUT)
+        {
+            LastPunchOut = DateTime.Now.ToLongTimeString();
+            UpdateUserStatus((int)isRest == 1 ? UserStatus.ONREST : UserStatus.INACTIVE);
+        }
 
         static string GetAliasProcessString(RegistryKey aliasKey, string aliasName)
         {
@@ -457,7 +535,7 @@ namespace TLCSProj.Core
             return string.Empty;
         }
 
+        static void UpdateUserStatus(UserStatus newStatus) => UserStatus = newStatus;
+
     }
-
-
 }

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace TLCSProj.UI
+﻿namespace TLCSProj.UI
 {
     internal class Coord
     {
@@ -10,30 +8,6 @@ namespace TLCSProj.UI
         {
             x = initX;
             y = initY;
-        }
-    }
-
-    internal static class ConsoleDrawer
-    {
-        
-        internal static Coord Draw(Label input, int x, int y)
-        {
-            Coord objectCoord = new Coord(x, y);
-            for (int row = 0; row < Console.WindowWidth; row++)
-            {
-                for (int col = 0; col < Console.WindowHeight; col++)
-                {
-                    if (row == x && col == y)
-                    {
-                        
-                        Console.SetCursorPosition(objectCoord.x, objectCoord.y);
-                        Console.Out.Write(input.Content);
-                        return objectCoord;
-                    }
-                }
-            }
-
-            return Coord.Zero;
         }
     }
 }

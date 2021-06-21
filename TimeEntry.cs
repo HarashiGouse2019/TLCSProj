@@ -6,6 +6,7 @@ namespace TLCSProj.Core.Time
     internal class TimeEntry
     {
         internal EntryType Type { get; private set; } = EntryType.NULL;
+        internal ConsoleColor TextColor { get; private set; } = ConsoleColor.White;
         internal string EntryMessage { get; private set; }
         string[] _entryHeader =
         {
@@ -17,24 +18,18 @@ namespace TLCSProj.Core.Time
             "SYSTEM ERROR RECEIVED",
             "PROCESS START REQUEST"
         };
-        internal TimeEntry(EntryType type, object value = null)
+        internal TimeEntry(EntryType type, object value = null, ConsoleColor textColor = ConsoleColor.White)
         {
-            if(type == default)
-            {
-                new TimeEntry(value.ToString());
-                return;
-            }
             EntryMessage = $">> {GetTimeStamp()} {_entryHeader[(int)type % _entryHeader.Length]}" + ((value != null) ? $" | {value}" : "");
             Type = type;
-        }
-        internal TimeEntry(string entryHeader, object value = null)
-        {
-            EntryMessage = $">> {GetTimeStamp()} {entryHeader} | {value}";
+            TextColor = textColor;
         }
 
-        internal TimeEntry(string userEntryMessage)
+        internal TimeEntry(object userEntryMessage, ConsoleColor textColor = ConsoleColor.White)
         {
             EntryMessage = $">> {GetTimeStamp()} {userEntryMessage}";
+            Type = default;
+            TextColor = textColor;
         }
 
         string GetTimeStamp()
