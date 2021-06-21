@@ -14,7 +14,61 @@ using TLCSProj.Core.Time;
 
 namespace TLCSProj.Core
 {
+    internal class InvalidCommandException : Exception
+    {
+        internal string ExceptionMessage;
 
+#nullable enable annotations
+        public InvalidCommandException(object? fault)
+        {
+            ExceptionMessage = $"{fault} is not a valid command. To see valid commands, type in \"HELP\"";
+        }
+    }
+
+    internal class ExpectedStringExcpetion : Exception
+    {
+        internal string ExceptionMessage;
+        public ExpectedStringExcpetion()
+        {
+            ExceptionMessage = $"Command expected a string...";
+        }
+    }
+
+    internal class ExpectedIntException : Exception
+    {
+        internal string ExceptionMessage;
+        public ExpectedIntException()
+        {
+            ExceptionMessage = $"Command expected an int...";
+        }
+    }
+
+    internal class ExpectedObjectException : Exception
+    {
+        internal string ExceptionMessage;
+        public ExpectedObjectException()
+        {
+            ExceptionMessage = $"Command expected an object...";
+        }
+    }
+
+    internal class ExpectedBooleanException : FormatException
+    {
+        internal string ExceptionMessage;
+        public ExpectedBooleanException()
+        {
+            ExceptionMessage = $"Command expected a boolean...";
+        }
+    }
+
+    internal class VoidCommandException : Exception
+    {
+        internal string ExceptionMessage;
+        public VoidCommandException()
+        {
+            ExceptionMessage = $"Command is a void command, thus doesn't require any values...";
+        }
+    }
     enum UserStatus
     {
         INACTIVE,
@@ -107,7 +161,6 @@ namespace TLCSProj.Core
         internal static Stopwatch SessionRuntime { get; private set; }
         internal static Stopwatch CumulativeSessionRuntime { get; private set; }
         static bool _IncludeSystemEvents = false;
-        static bool _inSession = false;
         static Process[] _TrackedProcesses;
 
         internal static TimeLog SessionTimeLog;
@@ -117,82 +170,135 @@ namespace TLCSProj.Core
 #nullable enable annotations
         static string[]? _storedArgs = null;
         static RegistryKey? aliasKey;
+        static bool IsInBounds(Array array, int index)
+        {
+            return (index >= 0 && index < array.Length);
+        }
 
         static readonly SessionCallbackMethods[] CommandMethodList = {
                 //Post command (args: string)
                 () =>
                 {
-                    _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
-                    SessionTimeLog.AddNewEntry(EntryType.POST, _storedArgs[1]);
+                    try
+                    {
+                        _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
+                        SessionTimeLog.AddNewEntry(EntryType.POST, _storedArgs[1]);
+                    } 
+                    catch(ExpectedStringExcpetion ese)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, ese.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Login Command (void)
                 () =>
                 {
-                    _inSession = true;
-                    SessionTimeLog.AddNewEntry(EntryType.PUNCHIN, color: ConsoleColor.Green);
-                    SessionRuntime = Stopwatch.StartNew();
-                    CumulativeSessionRuntime = Stopwatch.StartNew();
-                    MarkPunchIn();
+                    try
+                    {
+                        if (IsInBounds(_storedArgs, 1)) throw new VoidCommandException();
+                        SessionTimeLog.AddNewEntry(EntryType.PUNCHIN, color: ConsoleColor.Green);
+                        SessionRuntime = Stopwatch.StartNew();
+                        CumulativeSessionRuntime = Stopwatch.StartNew();
+                        MarkPunchIn();
+                    }
+                    catch(VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
+
                 },
 
                 //Rest Command (void)
                 () =>
                 {
-                    
-                    SessionTimeLog.AddNewEntry(EntryType.PUNCHOUT, $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
-                    SessionRuntime.Stop();
-                    CumulativeSessionRuntime.Stop();
-                    MarkPunchOut(PunchOutType.BREAK);
+                    try
+                    {
+                        if (IsInBounds(_storedArgs, 1)) throw new VoidCommandException();
+                        SessionTimeLog.AddNewEntry(EntryType.PUNCHOUT, $"{GetSessionRuntime()} | " +
+                            $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
+                        SessionRuntime.Stop();
+                        CumulativeSessionRuntime.Stop();
+                        MarkPunchOut(PunchOutType.BREAK);
+                    } 
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Resume Command (void)
                 () =>
                 {
-                    SessionTimeLog.AddNewEntry(EntryType.PUNCHIN, $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
-                    SessionRuntime.Restart();
-                    CumulativeSessionRuntime.Start();
-                    MarkPunchIn();
+                    try{
+                        if (IsInBounds(_storedArgs, 1)) throw new VoidCommandException();
+                        SessionTimeLog.AddNewEntry(EntryType.PUNCHIN, $"{GetSessionRuntime()} | " +
+                            $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
+                        SessionRuntime.Restart();
+                        CumulativeSessionRuntime.Start();
+                        MarkPunchIn();
+                    }
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Out Command (void)
                 () =>
                 {
-                    _inSession = false;
-                    SessionTimeLog.AddNewEntry(EntryType.PUNCHOUT, $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
-                    SessionRuntime.Stop();
-                    CumulativeSessionRuntime.Stop();
-                    MarkPunchOut();
+                    try{
+                        if (IsInBounds(_storedArgs, 1)) throw new VoidCommandException();
+                        SessionTimeLog.AddNewEntry(EntryType.PUNCHOUT, $"{GetSessionRuntime()} | " +
+                            $"{GetCumulativeSessionRuntime()}", ConsoleColor.Green);
+                        SessionRuntime.Stop();
+                        CumulativeSessionRuntime.Stop();
+                        MarkPunchOut();
+                    }
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Open Command (args: string)
                 () =>
                 {
-                    if (!_IncludeSystemEvents) return;
+                    try
+                    {
+                        if (!_IncludeSystemEvents) return;
 
-                    _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
+                        _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
 
-                    SessionTimeLog.AddNewEntry(EntryType.PROCESSSTARTREQUEST, (_IncludeSystemEvents ?
-                        $"Opening {_storedArgs[1]}" : null) + "...", ConsoleColor.Yellow);
+                        SessionTimeLog.AddNewEntry(EntryType.PROCESSSTARTREQUEST, (_IncludeSystemEvents ?
+                            $"Opening {_storedArgs[1]}" : null) + "...", ConsoleColor.Yellow);
 
-                    OpenProcess(_storedArgs[1]);
+                        OpenProcess(_storedArgs[1]);
+                    }
+                    catch (ExpectedStringExcpetion ese)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, ese.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Close Command (args: string)
                 () =>
                 {
-                    if (!_IncludeSystemEvents) return;
+                    try
+                    {
+                        if (!_IncludeSystemEvents) return;
 
-                    _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
+                        _storedArgs[1] = Instance._commandString.Split('\"', StringSplitOptions.None)[1];
 
-                    //TODO: Find Service Name, and close
-                    SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, (_IncludeSystemEvents ?
-                        $"Closing {_storedArgs[1]}" : null) + "...", ConsoleColor.Yellow);
+                        //TODO: Find Service Name, and close
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, (_IncludeSystemEvents ?
+                            $"Closing {_storedArgs[1]}" : null) + "...", ConsoleColor.Yellow);
 
-                    CloseProcess(_storedArgs[1]);
+                        CloseProcess(_storedArgs[1]);
+                    }
+                    catch(ExpectedStringExcpetion ese)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, ese.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Hotkey Command (args: char, int)
@@ -208,11 +314,17 @@ namespace TLCSProj.Core
                 //System Listen Command (args: bool)
                 () =>
                 {
-                    _IncludeSystemEvents = bool.Parse(_storedArgs[1]);
-
+                    try{
+                        _storedArgs[1] = _storedArgs[1].Trim('\r');
+                     bool.TryParse(_storedArgs[1], out bool results);
+                    _IncludeSystemEvents = results;
                     SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, _IncludeSystemEvents ?
                         $"System Now Listening. System Events will now be logged." :
                         "System Has Stopped Listening. System Events will not be logged.", ConsoleColor.Yellow);
+                    } catch (ExpectedBooleanException ebe)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, ebe.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //Log Target Command (args: string)
@@ -224,9 +336,17 @@ namespace TLCSProj.Core
                 //Session Time Command (void)
                 () =>
                 {
-                    SessionTimeLog.AddNewEntry(EntryType.NULL,
-                        $"{GetSessionRuntime()} | " +
-                        $"{GetCumulativeSessionRuntime()}");
+                    try
+                    {
+                        if (IsInBounds(_storedArgs, 1)) throw new VoidCommandException();
+                        SessionTimeLog.AddNewEntry(EntryType.NULL,
+                            $"{GetSessionRuntime()} | " +
+                            $"{GetCumulativeSessionRuntime()}");
+                    }
+                    catch(VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
 
                 },
 
@@ -234,7 +354,14 @@ namespace TLCSProj.Core
                 () =>
                 {
                     //TODO: Open Print Service, and set print job for Target File 
-                    
+                    try
+                    {
+                        if (!IsInBounds(_storedArgs, 1) || _storedArgs[1] != null) throw new VoidCommandException();
+                    }
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
                 },
 
                 //New Alias Command (string, string)
@@ -271,6 +398,8 @@ namespace TLCSProj.Core
                 {
                     try
                     {
+                        if (IsInBounds(_storedArgs, 1) ) throw new VoidCommandException();
+
                         if (!_IncludeSystemEvents) return;
 
                         if(Registry.LocalMachine.OpenSubKey(REG_SUB_KEY_ALIAS, true) == null ){
@@ -281,6 +410,10 @@ namespace TLCSProj.Core
                         }
 
                         SessionTimeLog.AddNewEntry(EntryType.SYSTEMPOST, $"Alias Registry Key has already been generated.", ConsoleColor.Yellow);
+                    }
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
                     }
                     catch (Exception e)
                     {
@@ -336,18 +469,45 @@ namespace TLCSProj.Core
                     SessionTimeLog.AddNewEntry(EntryType.NULL, $"Session Runtime in Seconds: {returnValue}");
                 },
 
+                //Search Log Command (string)
+                () =>
+                {
+                    try
+                    {
+
+                    }
+                    catch
+                    {
+
+                    }
+                },
+
                 //Help Command (void)
                 () =>
                 {
-
+                    try
+                    {
+                        if (IsInBounds(_storedArgs, 1) ) throw new VoidCommandException();
+                    }
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage);
+                    }
                 },
 
                 //End Command (void)
                 () =>
                 {
-                    //TODO: End Session
-                    _inSession = false;
-                    SessionTimeLog .AddNewEntry(EntryType.PUNCHOUT, "End of Time Logging Session!", ConsoleColor.Green);
+                    try
+                    {
+                        if (IsInBounds(_storedArgs, 1)) throw new VoidCommandException();
+                        //TODO: End Session
+                        SessionTimeLog .AddNewEntry(EntryType.PUNCHOUT, "End of Time Logging Session!", ConsoleColor.Green);
+                    }
+                    catch (VoidCommandException vce)
+                    {
+                        SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, vce.ExceptionMessage, ConsoleColor.Red);
+                    }
                 }
             };
 
@@ -424,6 +584,7 @@ namespace TLCSProj.Core
             GETHRS,
             GETMINS,
             GETSECS,
+            SEARLOG,
             HELP,
             END
         }
@@ -431,11 +592,18 @@ namespace TLCSProj.Core
 
         internal static void Validate(string[] args)
         {
-            _storedArgs = args;
+            try
+            {
+                _storedArgs = args;
 
-            //First argument will be command call
+                //First argument will be command call
 
-            CallCommand(args[0]);
+                CallCommand(args[0]);
+            }
+            catch (InvalidCommandException ice)
+            {
+                SessionTimeLog.AddNewEntry(EntryType.SYSTEMERROR, ice.ExceptionMessage);
+            }
         }
 
         static void CallCommand(string command)
@@ -445,8 +613,11 @@ namespace TLCSProj.Core
                 if (command.ToUpper().Contains(_SessionCallbacks[index].Code))
                 {
                     _SessionCallbacks[index].Trigger();
+                    return;
                 }
             }
+
+            throw new InvalidCommandException(command);
         }
         internal Session()
         {

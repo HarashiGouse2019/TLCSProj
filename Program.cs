@@ -18,6 +18,7 @@ namespace TLCSProj
     {
         static int _CurrentPage = 1;
         static int _TotalPages = 1;
+
         static SessionCallbackMethods _WindowResizeEvent = () =>
         {
             _PreviousWindowSize = _WindowSize;
@@ -44,6 +45,9 @@ namespace TLCSProj
             consoleUIThread.Start();
             sessionThread = new Thread(new ThreadStart(() => ReadInput(targetSession)));
             sessionThread.Start();
+            Console.SetWindowSize(108, 38);
+            Console.SetBufferSize(108, 48);
+            
         }
 
         static void ReadInput(Session targetSession)
@@ -147,8 +151,13 @@ namespace TLCSProj
 
                 int logLength = Session.SessionTimeLog.Get().Count -1 ;
                 int viewLength = (Console.WindowHeight - 15) - 2;
-                
+
                 _TotalPages = (logLength / viewLength) + 1;
+
+                if (_CurrentPage > _TotalPages)
+                    _CurrentPage = _TotalPages;
+
+                pageOfPage = new Label($"Page(s) {_CurrentPage} of {_TotalPages}");
 
                 //Display New Time Log Information
                 for (int index = 0; index < logLength + 1; index++)
@@ -162,10 +171,10 @@ namespace TLCSProj
                     }
                 }
 
-                pageOfPage = new Label($"Page(s) {_CurrentPage} of {_TotalPages}");
+                
 
                 ConsoleDrawer.Draw(l_Line, 0, Console.WindowHeight - 2);
-                ConsoleDrawer.Draw(new Label("F5: PREVIOUS PAGE | F6: NEXT PAGE"), 0, Console.WindowHeight - 1);
+                ConsoleDrawer.Draw(new Label("F5: PREVIOUS PAGE | F6: NEXT PAGE | F10: Enable Page Follow"), 0, Console.WindowHeight - 1);
                 ConsoleDrawer.Draw(pageOfPage, Console.WindowWidth - pageOfPage.Size, Console.WindowHeight - 1);
             };
         }
@@ -190,11 +199,6 @@ namespace TLCSProj
                 Console.Write(new string(' ', width));
             }
             Console.SetCursorPosition(curLeft, curTop);
-        }
-
-        static void DisplayTimeLog()
-        {
-
         }
     }
 }
